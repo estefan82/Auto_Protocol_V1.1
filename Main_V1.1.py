@@ -11,7 +11,7 @@ class MouseGridApp(ctk.CTk):
     def __init__(self):
         super().__init__()
         self.title("Auto Protocol V1")
-        self.geometry("400x400")
+        self.geometry("400x500")
 
         # Variables
         self.base_pos = None
@@ -25,8 +25,9 @@ class MouseGridApp(ctk.CTk):
         if not self.config.has_section("APP"):
             self.config.add_section("APP")
             self.config["APP"]["cantidad"] = str(10)
-            self.config["APP"]["option"] = "No"
-            self.config["APP"]["delay"] = str(0.1)
+            self.config["APP"]["option"] = "N/A"
+            self.config["APP"]["delay"] = str(0.2)
+            self.config["APP"]["posibles"] = "Si, No o N/A"
             with open(CONFIG_FILE, "w") as f:
                 self.config.write(f)
 
@@ -35,7 +36,6 @@ class MouseGridApp(ctk.CTk):
         self.cantidad = self.config.getint("APP", "cantidad")
         self.option = self.config.get("APP", "option")
         self.delay = self.config.getfloat("APP", "delay")
-        #self.num_celdas = ctk.IntVar(value=self.cantidad)
         self.num_celdas = ctk.StringVar(value=str(self.cantidad))
 
         # UI
@@ -46,24 +46,47 @@ class MouseGridApp(ctk.CTk):
         self.label_offset = ctk.CTkLabel(self, text=self.get_offset_text())
         self.label_offset.pack(pady=5)
 
-        self.entry_celdas = ctk.CTkEntry(self, textvariable=self.num_celdas, placeholder_text="Número de celdas")
-        self.entry_celdas.pack(pady=10)
+        # Frame principal centrado
+        frame_central = ctk.CTkFrame(self)
+        frame_central.pack(pady=20)
 
-        self.combo_tecla = ctk.CTkComboBox(self, values=["Sí", "No", "N/A"])
-        self.combo_tecla.pack(pady=10)
-        self.combo_tecla.set("N/A")
+        # Configurar columnas (col0=labels, col1=entries/combobox)
+        ancho_label = 100
+        ancho_entry = 150
 
-        self.btn_ir = ctk.CTkButton(self, text="Escribir en todas las celdas", command=self.escribir_en_todas)
+        # -------- Entry: Número de celdas --------
+        lbl_celdas = ctk.CTkLabel(frame_central, text="Número de celdas:", width=ancho_label, anchor="e")
+        lbl_celdas.grid(row=0, column=0, padx=5, pady=5, sticky="e")
+        self.entry_celdas = ctk.CTkEntry(frame_central, width=ancho_entry, textvariable=self.num_celdas)
+        self.entry_celdas.grid(row=0, column=1, padx=5, pady=5)
+
+        # -------- Combo: Tecla --------
+        lbl_tecla = ctk.CTkLabel(frame_central, text="Opción:", width=ancho_label, anchor="e")
+        lbl_tecla.grid(row=1, column=0, padx=5, pady=5, sticky="e")
+        self.combo_tecla = ctk.CTkComboBox(frame_central, width=ancho_entry, values=["Si", "No", "N/A"])
+        self.combo_tecla.grid(row=1, column=1, padx=5, pady=5)
+        self.combo_tecla.set(self.option)
+
+        # -------- Entry: Delay --------
+        lbl_delay = ctk.CTkLabel(frame_central, text="Delay (ms):", width=ancho_label, anchor="e")
+        lbl_delay.grid(row=2, column=0, padx=5, pady=5, sticky="e")
+        self.entry_delay = ctk.CTkEntry(frame_central, width=ancho_entry, placeholder_text="Tiempo (delay) en ms")
+        self.entry_delay.grid(row=2, column=1, padx=5, pady=5)
+        self.entry_delay.insert(0, self.delay)
+
+        # -------- Botones (centrados debajo) --------
+        self.btn_ir = ctk.CTkButton(self, text="Escribir en todas las celdas", command=self.escribir_en_todas, width=200)
         self.btn_ir.pack(pady=20)
 
-        self.btn_borrar_base = ctk.CTkButton(self, text="Borrar Base", command=self.borrar_base)
+        self.btn_borrar_base = ctk.CTkButton(self, text="Borrar Base", command=self.borrar_base, width=200)
         self.btn_borrar_base.pack(pady=5)
 
-        self.btn_calibrar = ctk.CTkButton(self, text="Calibrar Offset", command=self.iniciar_calibracion)
+        self.btn_calibrar = ctk.CTkButton(self, text="Calibrar Offset", command=self.iniciar_calibracion, width=200)
         self.btn_calibrar.pack(pady=5)
 
-        self.btn_reset_offset = ctk.CTkButton(self, text="Resetear Offset", command=self.resetear_offset)
+        self.btn_reset_offset = ctk.CTkButton(self, text="Resetear Offset", command=self.resetear_offset, width=200)
         self.btn_reset_offset.pack(pady=5)
+
 
         # Bind shift
         keyboard.on_press_key("shift", self.marcar_base)
@@ -86,6 +109,13 @@ class MouseGridApp(ctk.CTk):
             if "GRID" in self.config and "dy" in self.config["GRID"]:
                 self.dy = int(self.config["GRID"]["dy"])
                 print(f"Offset cargado desde config.ini: dy={self.dy}")
+
+    def set_config(self):
+        self.config["APP"]["cantidad"]  = str(self.entry_celdas.get())
+        self.config["APP"]["option"]    = str(self.combo_tecla.get())
+        self.config["APP"]["delay"]     = str(self.entry_delay.get())
+        with open(CONFIG_FILE, "w") as f:
+            self.config.write(f)
 
     def guardar_config(self):
         """Guarda offset en config.ini"""
@@ -113,6 +143,8 @@ class MouseGridApp(ctk.CTk):
         self.celdas = []
         self.label_info.configure(text="Base borrada. Marca una nueva con SHIFT.")
         print("Base borrada.")
+        self.cargar_config()
+        self.label_offset.configure(text=self.get_offset_text())
 
     def iniciar_calibracion(self):
         """Activa modo calibración (se necesitan 2 clics en SHIFT)"""
@@ -157,12 +189,15 @@ class MouseGridApp(ctk.CTk):
         if not self.celdas:
             self.label_info.configure(text="Primero marca base con SHIFT")
             return
-        if self.combo_tecla.get() == "Sí":
+        if self.combo_tecla.get() == "Si":
             tecla = "s"
         elif self.combo_tecla.get() == "No":
             tecla = "n"
         elif self.combo_tecla.get() == "N/A":
             tecla = "nn"
+
+        self.delay = float(self.entry_delay.get())
+
         if tecla == "s" or tecla == "n":
             for x, y in self.celdas:
                 time.sleep(self.delay)
@@ -183,6 +218,7 @@ class MouseGridApp(ctk.CTk):
                 keyboard.send("tab")
 
         self.borrar_base()
+        self.set_config()
 
 if __name__ == "__main__":
     app = MouseGridApp()
