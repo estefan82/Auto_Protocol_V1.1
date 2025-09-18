@@ -170,6 +170,7 @@ class MouseGridApp(ctk.CTk):
                 time.sleep(self.delay)
                 keyboard.send(tecla)
                 time.sleep(self.delay)
+                keyboard.send("tab")
         else:
             for x, y in self.celdas:
                 time.sleep(self.delay)
@@ -179,6 +180,7 @@ class MouseGridApp(ctk.CTk):
                 time.sleep(self.delay)
                 keyboard.send("n")
                 time.sleep(self.delay)
+                keyboard.send("tab")
 
         self.borrar_base()
 
